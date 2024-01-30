@@ -1,7 +1,9 @@
 // Includes
 #include "multiplexer.hpp"
+#include "utilities.hpp"
 #include <WiFi.h>
-#include <mqtt_client.h>
+#include <WiFiUdp.h>
+#include <driver/adc.h>
 
 // Types
 struct MultiplexerIndexes {
@@ -41,13 +43,10 @@ Multiplexer outputSubMultiplexer(amount, OUTPUT, outputSubMultiplexerPins, outpu
 Multiplexer inputMultiplexer(amount, INPUT, inputMultiplexerPins, inputMultiplexerConnectPin);
 Multiplexer inputSubMultiplexer(amount, INPUT, inputSubMultiplexerPins, inputSubMultiplexerConnectPin);
 
-const esp_mqtt_client_config_t mqttConf = {
-        .host = "172.20.10.9",
-        .port = 1883,
-        .client_id = "esp-wroom-32",
-        .buffer_size = 1600
+WiFiUDP udpClient;
+adc_digi_configuration_t adc1Config = {
+        .sample_freq_hz = 83333
 };
-esp_mqtt_client_handle_t mqttClient;
 
 // Methods
 MultiplexerIndexes getMultiplexerIndexes(const uint8_t& count) {
@@ -72,50 +71,24 @@ void updateMatrix() {
     }
 }
 
-void setupWiFi() {
-    Serial.println("Starting 3 second grace period...");
-    delay(3000);
-    Serial.println("Finished 3 second grace period.");
-
-    Serial.println("Setting up WiFi...");
-    WiFi.begin("Stargate Command", "IFnq-5OB4-sMyS-QY29");
-
-    while (WiFiClass::status() != WL_CONNECTED) {
-        Serial.println("Trying to connect...");
-        delay(1000);
-    }
-    Serial.println("Successfully set up WiFi!");
-}
-
-void setupMQTT() {
-    Serial.println("Setting up MQTT...");
-    mqttClient = esp_mqtt_client_init(&mqttConf);
-    esp_mqtt_client_start(mqttClient);
-    Serial.println("Successfully set up MQTT!");
-}
-
-void setupMultiplexers() {
-    Serial.println("Setting up Multiplexers...");
-    outputMultiplexer.powerOn();
-    Serial.println("Successfully set up Multiplexers!");
-}
-
 void setup() {
     Serial.begin(921600);
-    setupWiFi();
-    setupMQTT();
-    setupMultiplexers();
-    Serial.println("Setup done, beginning runtime cycle.");
+
+    adc_digi_controller_configure(&adc1Config);
+    delay(3000);
+
+    WiFi.begin("", "");
+    while (WiFiClass::status() != WL_CONNECTED) delay(1000);
+
+    outputMultiplexer.powerOn();
 }
 
 void loop() {
     updateMatrix();
-    esp_mqtt_client_publish(
-            mqttClient,
-            "stressTest",
-            (const char*)matrix,
-            sizeof(matrix),
-            0,
-            0
-    );
+
+    udpClient.beginPacket("", 8888);
+    for (uint16_t value : matrix)
+        for (char i : integral_to_bytes<uint16_t>(value))
+            udpClient.write(i);
+    udpClient.endPacket();
 }
