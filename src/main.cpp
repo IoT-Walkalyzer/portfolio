@@ -75,6 +75,7 @@ void setup() {
     Serial.begin(921600);
 
     adc_digi_controller_configure(&adc1Config);
+    adc1_config_width(ADC_WIDTH_BIT_9);
     delay(3000);
 
     WiFi.begin("", "");

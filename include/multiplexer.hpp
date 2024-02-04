@@ -4,6 +4,7 @@
 // Includes
 #include <cstdint>
 #include <Arduino.h>
+#include <driver/adc.h>
 
 // Class
 class Multiplexer {
@@ -28,7 +29,7 @@ public:
 
     uint16_t read(const uint8_t* channelSelection) {
         select(channelSelection);
-        return analogRead(_connectPin);
+        return (uint16_t) adc1_get_raw(ADC1_CHANNEL_0);
     };
 
     void powerOn() {
